@@ -88,7 +88,7 @@ def setup_logging():
     
     # 配置根日志记录器
     logging.basicConfig(
-        level=logging.DEBUG,
+        level=logging.INFO,
         format=log_format,
         datefmt=date_format,
         handlers=[
