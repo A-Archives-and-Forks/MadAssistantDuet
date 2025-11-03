@@ -119,6 +119,7 @@ jobs:
             if [[ "${{ matrix.os }}" == "win" ]]; then
               mkdir -p install
               cp -v "tools/DependencySetup_依赖库安装.bat" install/
+              cp -v "tools/PythonDependencySetup_Python依赖安装.bat" install/
             fi
           else
             echo "Skipping copy MFA for Android."
@@ -164,7 +165,7 @@ jobs:
           for f in *; do
             (cd $f && zip -r ../$f-${{ needs.meta.outputs.tag }}.zip .)
           done
-          
+
       - uses: softprops/action-gh-release@v2
         with:
           files: assets/*

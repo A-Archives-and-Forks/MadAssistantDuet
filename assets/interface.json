@@ -35,7 +35,7 @@
         },
         {
             "name": "65级mod（扼守）",
-            "entry": "exitBattle_for_win",
+            "entry": "def_map1_entry",
             "doc": "进入指定副本后，即可启动，会先自动退出一次复位"
         }
     ],

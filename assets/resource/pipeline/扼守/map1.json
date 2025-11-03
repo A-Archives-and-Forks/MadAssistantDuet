@@ -1,0 +1,108 @@
+{
+    "def_map1_entry":{
+        "recognition": "DirectHit",
+        "action": "ClickKey",
+        "key": 27,
+        "next": ["def_map1_giveup"]
+    },
+    "def_map1_giveup":{
+        "recognition": "OCR",
+        "expected": ["放弃挑战"],
+        "action": "Click",
+        "next": ["def_map1_confirm"]
+    }, 
+    "def_map1_confirm":{
+        "recognition": "OCR",
+        "expected": ["确定"],
+        "action": "Click",
+        "next": ["def_map1_again"]
+    },
+    "def_map1_again": {
+        "recognition": "OCR",
+        "expected": "再次进行",
+        "timeout": 1000,
+        "action": "Click",
+        "next": ["def_map1_start"]
+    },
+    "def_map1_start": {
+        "recognition": "OCR",
+        "expected": "开始挑战",
+        "action": "Click",
+        "next": ["def_map1_in_battle"]
+    },
+    "def_map1_in_battle":{
+        "recognition": "OCR",
+        "expected": "前往目标点",
+        "post_delay": 3000,
+        "action": "DoNothing",
+        "next": ["def_map1_a1"]
+    },
+    "def_map1_a1":{
+        "recognition": "DirectHit",
+        "action": "Custom",
+        "custom_action": "RunWithShift",
+        "custom_action_param": {
+            "direction": "w",     
+            "duration": 4,       
+            "shift_delay": 0.05  
+        },
+        "next": ["def_map1_a2"]
+    },
+    "def_map1_a2":{
+        "recognition": "DirectHit",
+        "action": "Custom",
+        "custom_action": "RunWithShift",
+        "custom_action_param": {
+            "direction": "a",     
+            "duration": 3,       
+            "shift_delay": 0.05  
+        },
+        "next": ["def_map1_a3"]
+    },
+    "def_map1_a3":{
+        "recognition": "DirectHit",
+        "action": "Custom",
+        "custom_action": "RunWithShift",
+        "custom_action_param": {
+            "direction": "w",     
+            "duration": 1,       
+            "shift_delay": 0.05  
+        },
+        "next": ["def_map1_a4"]
+    },
+    "def_map1_a4":{
+        "recognition": "DirectHit",
+        "action": "Custom",
+        "custom_action": "RunWithShift",
+        "custom_action_param": {
+            "direction": "a",     
+            "duration": 12.5,       
+            "shift_delay": 0.05  
+        },
+        "next": ["def_map_a5"]
+    },
+    "def_map_a5":{
+        "recognition": "DirectHit",
+        "action": "Custom",
+        "custom_action": "ResetCharacterPosition",
+        "custom_action_param": {
+            "template_path": "common/其他.png",
+            "wait_delay": 800
+        },
+        "next": ["def_map1_auto_battle"]
+    },
+    "def_map1_auto_battle": {
+        "recognition": "DirectHit",
+        "action": "Custom",
+        "custom_action": "LongPressWithTimeoutDetection",
+        "custom_action_param": {
+            "check_interval": 1000,
+            "total_timeout": 200000,
+            "target_node": "def_map1_again",
+            "interrupt_node": "autoBattle_for_win"
+        },
+        "on_error": ["def_map1_entry"],
+        "next": []
+    }
+
+}

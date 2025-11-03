@@ -25,6 +25,8 @@ GAME_CONFIG = {
 # 重要：必须在 AgentServer.start_up() 之前导入，以便装饰器注册自定义 Action 和 Recognition
 import my_action
 import my_reco
+import common  # 导入通用自定义动作模块
+import test_recognition  # 导入测试识别模块
 
 
 def is_admin():
@@ -136,9 +138,7 @@ def main():
     logger.info(f"工作目录: {os.getcwd()}")
     
     # 输出已注册的自定义 Action 和 Recognition（用于调试）
-    logger.info("已导入模块: my_action, my_reco")
-    logger.info(f"my_action 模块位置: {my_action.__file__}")
-    logger.info(f"my_action 自定义类:")
+
     logger.info(f"  - MyCustomAction: {my_action.MyCustomAction}")
     logger.info(f"  - LongPressWithTimeoutDetection: {my_action.LongPressWithTimeoutDetection}")
     

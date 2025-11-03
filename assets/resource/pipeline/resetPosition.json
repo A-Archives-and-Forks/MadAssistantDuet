@@ -1,0 +1,43 @@
+{
+    "ResetPosition": {
+        "recognition": "DirectHit",
+        "action": "Custom",
+        "custom_action": "ResetCharacterPosition",
+        "custom_action_param": {
+            "template_path": "common/其他.png",
+            "wait_delay": 800
+        },
+        "next": []
+    },
+    
+    "OCR_Settings": {
+        "recognition": "OCR",
+        "expected": ["设置"],
+        "action": "Click"
+    },
+    
+    "Template_Other": {
+        "recognition": "TemplateMatch",
+        "template": "common/其他.png",
+        "action": "Click"
+    },
+    
+    "OCR_ResetCharacter": {
+        "recognition": "OCR",
+        "expected": ["复位角色"],
+        "action": "Click"
+    },
+    
+    "OCR_Confirm": {
+        "recognition": "OCR",
+        "expected": ["确定"],
+        "action": "Click"
+    },
+    
+    "TestRecognition": {
+        "recognition": "DirectHit",
+        "action": "Custom",
+        "custom_action": "TestRecognition",
+        "next": []
+    }
+}
