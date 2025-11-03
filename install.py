@@ -76,10 +76,41 @@ def install_chores():
         working_dir / "LICENSE",
         install_path,
     )
-    shutil.copy2(
-        working_dir / "requirements.txt",
-        install_path,
-    )
+    
+    # 检测目标平台并复制对应的 requirements 文件
+    # 通过检查 deps/bin 中的文件来判断平台
+    is_windows = False
+    if (working_dir / "deps" / "bin").exists():
+        # Windows 平台会有 .dll 文件
+        dll_files = list((working_dir / "deps" / "bin").glob("*.dll"))
+        is_windows = len(dll_files) > 0
+    
+    if is_windows:
+        # Windows 平台使用 requirements-windows.txt (包含 pywin32)
+        if (working_dir / "requirements-windows.txt").exists():
+            shutil.copy2(
+                working_dir / "requirements-windows.txt",
+                install_path / "requirements.txt",
+            )
+        else:
+            # 兜底：如果文件不存在，使用原始的 requirements.txt
+            shutil.copy2(
+                working_dir / "requirements.txt",
+                install_path,
+            )
+    else:
+        # 非 Windows 平台使用 requirements-base.txt (不含 pywin32)
+        if (working_dir / "requirements-base.txt").exists():
+            shutil.copy2(
+                working_dir / "requirements-base.txt",
+                install_path / "requirements.txt",
+            )
+        else:
+            # 兜底：如果文件不存在，使用原始的 requirements.txt
+            shutil.copy2(
+                working_dir / "requirements.txt",
+                install_path,
+            )
 
 def install_agent():
     shutil.copytree(

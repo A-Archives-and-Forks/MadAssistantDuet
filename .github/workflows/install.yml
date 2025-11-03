@@ -105,7 +105,11 @@ jobs:
       - name: Install
         shell: bash
         run: |
-          python -m pip install -r ./requirements.txt
+          if [[ "${{ matrix.os }}" == "win" ]]; then
+            python -m pip install -r ./requirements-windows.txt
+          else
+            python -m pip install -r ./requirements-base.txt
+          fi
           python ./install.py ${{ needs.meta.outputs.tag }}
 
           if [[ "${{ matrix.os }}" != "android" ]]; then
