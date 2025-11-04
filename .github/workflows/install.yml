@@ -133,6 +133,7 @@ jobs:
               exit $LASTEXITCODE
           } else {
               echo "✓ robocopy 成功,退出代码: $LASTEXITCODE (正常)"
+              exit 0
           }
 
           echo "Copying dependency setup tools..."
