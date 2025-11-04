@@ -14,7 +14,7 @@
 > MAD指MAD Assistant Duet
 
 ## 使用
-
+[视频介绍](https://www.bilibili.com/video/BV15H1nBZEMG)
 1. 目前只支持桌面端（非模拟器），且游戏需使用**无边框窗口**运行，通过修改系统分辨率可以降低能耗
 2. 前往[release](https://github.com/huanshang141/MdaAssistantDuet/releases)下载对应版本
 3. 建议先运行游戏，再运行脚本
