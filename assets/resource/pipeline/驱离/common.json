@@ -40,11 +40,10 @@
     "expulsion_a1":{
         "recognition": "DirectHit",
         "action": "Custom",
-        "custom_action": "RunWithShift",
+        "custom_action": "LongPressKey",
         "custom_action_param": {
-            "direction": "w",     
-            "duration": 4,       
-            "shift_delay": 0.05  
+            "key":87,
+            "duration": 12
         },
         "next": ["expulsion_a2"]
     },
