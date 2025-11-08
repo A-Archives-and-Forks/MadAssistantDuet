@@ -1,4 +1,12 @@
 {
+    "JJcoin_rounds": {
+        "action": "Custom",
+        "custom_action": "SetBattleRounds",
+        "custom_action_param": {
+            "battle_rounds": 3
+        },
+        "next": ["JJcoin_entry"]
+    },
     "JJcoin_entry": {
         "recognition": "DirectHit",
         "action": "ClickKey",
@@ -109,14 +117,15 @@
         "expected": ["保护探险家"],
         "post_delay": 2000,
         "action": "Custom",
-        "custom_action":"AutoBattle",
+        "custom_action":"MultiRoundsAutoBattle",
         "custom_action_param":{
             "check_interval": 5000,
             "total_timeout": 420000,
-            "target_node": "JJcoin_finish"
+            "target_node": "JJcoin_finish",
+            "post_rounds":["JJcoin_continue_1"]
         },
         "on_error": ["JJcoin_entry"],
-        "next": []
+        "next": ["JJcoin_finish"]
     },
     "JJcoin_finish":{
         "recognition": "TemplateMatch",
@@ -126,6 +135,18 @@
         "roi" : [317,444,258,121],
         "on_error": ["JJcoin_entry"],
         "next": ["JJcoin_again"]
+    },
+    "JJcoin_continue_1":{
+        "recognition": "OCR",
+        "expected": ["继续挑战"],
+        "action": "Click",
+        "next": ["JJcoin_continue_2"]
+    },
+    "JJcoin_continue_2":{
+        "recognition": "OCR",
+        "expected": ["开始挑战"],
+        "action": "Click",
+        "next": []
     }
     
 }
