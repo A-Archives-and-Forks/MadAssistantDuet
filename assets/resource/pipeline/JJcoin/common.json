@@ -70,13 +70,14 @@
         "action": "Custom",
         "custom_action":"JsonActionSequence",
         "custom_action_param": "JJcoin_map2_start1.json",
+        "on_error": ["JJcoin_entry"],
         "next": ["JJcoin_map2_1a","JJcoin_map2_1b"]
     },
     "JJcoin_map2_1a":{
         "recognition": "TemplateMatch",
         "template": ["JJcoin/map2_1a.jpg"],
         "roi" : [21,111,315,277],
-        "threshold": [0.8],
+        "threshold": [0.7],
         "post_delay": 2000,
         "action": "Custom",
         "custom_action":"JsonActionSequence",
@@ -88,7 +89,7 @@
     "JJcoin_map2_1b":{
         "recognition": "TemplateMatch",
         "template": ["JJcoin/map2_1b.jpg"],
-        "threshold": [0.8],
+        "threshold": [0.7],
         "roi" : [226,2,536,504],
         "post_delay": 2000,
         "timeout":20000,
@@ -107,11 +108,15 @@
         "recognition": "OCR",
         "expected": ["保护探险家"],
         "post_delay": 2000,
-        "action": "DoNothing",
-        "rate_limit": 5000,
-        "timeout": 420000,
-        "next": ["JJcoin_finish"],
-        "on_error": ["JJcoin_entry"]
+        "action": "Custom",
+        "custom_action":"AutoBattle",
+        "custom_action_param":{
+            "check_interval": 5000,
+            "total_timeout": 420000,
+            "target_node": "JJcoin_finish"
+        },
+        "on_error": ["JJcoin_entry"],
+        "next": []
     },
     "JJcoin_finish":{
         "recognition": "TemplateMatch",
