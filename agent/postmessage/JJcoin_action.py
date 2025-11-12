@@ -1,9 +1,10 @@
 """
-皎皎币动作序列执行器
-基于 PostMessage + 扫描码实现的精确时间控制动作
-从JSON文件加载动作序列
-支持 Pipeline V1 格式
-支持闪避键映射
+皎皎币动作序列执行器 (使用 MaaFramework 控制器 API)
+
+变更说明:
+- 移除窗口句柄查找与 PostMessageInputHelper 依赖
+- 使用 context.tasker.controller.post_key_down/post_key_up 执行动作
+- 仍支持从 JSON 文件加载序列, 并保留对“闪避键(shift)”到全局配置的映射
 """
 
 import json
@@ -13,7 +14,6 @@ import os
 from maa.custom_action import CustomAction
 from maa.context import Context
 import win32con
-import win32gui
 import sys
 
 # 导入主模块来访问全局配置
@@ -22,71 +22,41 @@ import main
 
 logger = logging.getLogger(__name__)
 
-# 修正导入路径 - 从 postmessage 目录导入 input_helper
-try:
-    from postmessage.input_helper import PostMessageInputHelper
-except ImportError:
-    # 如果直接导入失败，尝试添加路径
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    parent_dir = os.path.dirname(current_dir)
-    postmessage_dir = os.path.join(parent_dir, 'postmessage')
-    if postmessage_dir not in sys.path:
-        sys.path.insert(0, postmessage_dir)
-    try:
-        from input_helper import PostMessageInputHelper
-    except ImportError as e:
-        logger.error(f"无法导入 PostMessageInputHelper: {e}")
-        raise
+# 本文件不再使用 PostMessageInputHelper
 
 
-class GameWindowAction(CustomAction):
-    """
-    游戏窗口操作基类
-    提供通用的窗口句柄获取方法
-    """
-    
-    # 目标窗口标题关键字列表
-    WINDOW_TITLE_KEYWORDS = ["二重螺旋", "Duet Night Abyss"]
-    
-    def _get_window_handle(self, context: Context) -> int:
-        """
-        获取窗口句柄（通用方法）
-        """
-        try:
-            # 方法 1: 精确匹配 - 遍历所有关键字
-            for keyword in self.WINDOW_TITLE_KEYWORDS:
-                hwnd = win32gui.FindWindow(None, keyword)
-                if hwnd and win32gui.IsWindow(hwnd):
-                    logger.info(f"[_get_window_handle] [OK] 找到「{keyword}」窗口: {hwnd} (0x{hwnd:08X})")
-                    return hwnd
-            
-            # 方法 2: 模糊匹配 - 枚举所有窗口查找包含任一关键字的
-            def find_window_callback(hwnd, param):
-                if win32gui.IsWindowVisible(hwnd):
-                    title = win32gui.GetWindowText(hwnd)
-                    for keyword in self.WINDOW_TITLE_KEYWORDS:
-                        if keyword in title:
-                            param.append((hwnd, keyword, title))
-                            return
-            
-            found_windows = []
-            win32gui.EnumWindows(find_window_callback, found_windows)
-            
-            if found_windows:
-                hwnd, keyword, title = found_windows[0]
-                logger.info(f"[_get_window_handle] [OK] 找到包含「{keyword}」的窗口: {hwnd} (0x{hwnd:08X})")
-                logger.info(f"[_get_window_handle] 窗口标题: '{title}'")
-                return hwnd
-            
-            logger.error(f"[_get_window_handle] 未找到包含 {self.WINDOW_TITLE_KEYWORDS} 中任一关键字的窗口")
-            return 0
-            
-        except Exception as e:
-            logger.error(f"[_get_window_handle] 获取窗口句柄失败: {e}", exc_info=True)
-            return 0
+########################
+# 键名/方向 -> VK 辅助
+########################
+
+def _char_to_vk(ch: str) -> int:
+    if len(ch) != 1:
+        raise ValueError(f"char 必须是单个字符: {ch}")
+    return ord(ch.upper())
+
+def _name_to_vk(name: str, dodge_vk: int) -> int:
+    n = name.lower()
+    special = {
+        "shift": dodge_vk,  # shift 按 JSON 语义映射为配置的闪避键
+        "ctrl": win32con.VK_CONTROL,
+        "alt": win32con.VK_MENU,
+        "space": win32con.VK_SPACE,
+        "enter": win32con.VK_RETURN,
+        "esc": win32con.VK_ESCAPE,
+        "tab": win32con.VK_TAB,
+        "up": win32con.VK_UP,
+        "down": win32con.VK_DOWN,
+        "left": win32con.VK_LEFT,
+        "right": win32con.VK_RIGHT,
+    }
+    if n in special:
+        return special[n]
+    if len(name) == 1:
+        return _char_to_vk(name)
+    raise ValueError(f"不支持的按键: {name}")
 
 
-class JsonActionSequence(GameWindowAction):
+class JsonActionSequence(CustomAction):
     """
     从JSON文件加载动作序列
     支持 Pipeline V1 格式
@@ -124,7 +94,7 @@ class JsonActionSequence(GameWindowAction):
             
             # 调试信息：打印 argv 的类型和内容
             logger.info(f"[JsonActionSequence] argv 类型: {type(argv)}")
-            logger.info(f"[JsonActionSequence] argv 内容: {argv}")
+            logger.trace(f"[JsonActionSequence] argv 内容: {argv}")
             
             # 尝试不同的参数获取方式
             if hasattr(argv, 'custom_action_param') and argv.custom_action_param:
@@ -185,26 +155,17 @@ class JsonActionSequence(GameWindowAction):
             logger.info(f"  总时长: {total_time:.3f}秒")
             logger.info(f"  动作数量: {len(actions)} 个")
             
-            # 获取窗口句柄
-            hwnd = self._get_window_handle(context)
-            if not hwnd:
-                logger.error("[JsonActionSequence] 无法获取窗口句柄")
-                return False
-            
-            # 创建输入辅助对象
-            input_helper = PostMessageInputHelper(hwnd)
-            
             # 从全局配置获取闪避键
             dodge_vk = main.GAME_CONFIG.get("dodge_key", win32con.VK_SHIFT)
             logger.info(f"[JsonActionSequence] 使用闪避键: VK={dodge_vk} (0x{dodge_vk:02X}) - {self._vk_to_name(dodge_vk)}")
             
             # 处理动作序列，将按键字符串转换为虚拟键码，并映射闪避键
-            processed_actions = self._process_actions(actions, dodge_vk, input_helper)
+            processed_actions = self._process_actions(actions, dodge_vk)
             if processed_actions is None:
                 return False
             
             # 执行动作序列
-            success = self._execute_action_sequence(input_helper, processed_actions, sequence_name)
+            success = self._execute_action_sequence(context, processed_actions, sequence_name)
             
             if success:
                 logger.info(f"[JsonActionSequence] [OK] 动作序列 '{sequence_name}' 执行完成")
@@ -291,7 +252,7 @@ class JsonActionSequence(GameWindowAction):
             logger.error(f"[JsonActionSequence] 获取JSON文件路径失败: {e}")
             return None
     
-    def _process_actions(self, actions, dodge_vk, input_helper):
+    def _process_actions(self, actions, dodge_vk):
         """
         处理动作序列，将按键字符串转换为虚拟键码
         特别处理：将JSON中的"shift"映射为配置的闪避键
@@ -299,7 +260,7 @@ class JsonActionSequence(GameWindowAction):
         Args:
             actions: 原始动作序列
             dodge_vk: 闪避键虚拟键码
-            input_helper: PostMessageInputHelper 实例
+            
             
         Returns:
             list: 处理后的动作序列，如果转换失败返回None
@@ -312,9 +273,9 @@ class JsonActionSequence(GameWindowAction):
             
             # 如果按键是字符串，需要转换为虚拟键码
             if isinstance(key, str):
-                # 特殊按键映射 - 使用 input_helper 的方法
+                # 特殊按键映射
                 special_keys = {
-                    "shift": dodge_vk,  # 关键修改：将"shift"映射为配置的闪避键
+                    "shift": dodge_vk,  # 关键：将"shift"映射为配置的闪避键
                     "ctrl": win32con.VK_CONTROL,
                     "alt": win32con.VK_MENU,
                     "space": win32con.VK_SPACE,
@@ -332,20 +293,9 @@ class JsonActionSequence(GameWindowAction):
                     if key_lower == "shift":
                         logger.debug(f"[JsonActionSequence] 映射闪避键: 'shift' -> VK={dodge_vk} (0x{dodge_vk:02X})")
                 else:
-                    # 使用 input_helper 的方法转换按键
                     try:
-                        # 对于字母按键，使用 char_to_vk 方法
-                        if len(key) == 1 and key.isalpha():
-                            vk_code = input_helper.char_to_vk(key_lower)
-                        else:
-                            # 对于其他按键，尝试使用 get_direction_vk 方法
-                            vk_code = input_helper.get_direction_vk(key_lower)
-                        
-                        if vk_code:
-                            processed_action["key"] = vk_code
-                        else:
-                            logger.error(f"[JsonActionSequence] 无法将按键 '{key}' 转换为虚拟键码")
-                            return None
+                        vk_code = _name_to_vk(key_lower, dodge_vk)
+                        processed_action["key"] = vk_code
                     except Exception as e:
                         logger.error(f"[JsonActionSequence] 转换按键 '{key}' 时发生异常: {e}")
                         return None
@@ -355,12 +305,12 @@ class JsonActionSequence(GameWindowAction):
         
         return processed_actions
     
-    def _execute_action_sequence(self, input_helper, actions, sequence_name):
+    def _execute_action_sequence(self, context: Context, actions, sequence_name):
         """
         执行动作序列
         
         Args:
-            input_helper: PostMessageInputHelper 实例
+            
             actions: 动作序列列表
             sequence_name: 序列名称，用于日志
             
@@ -390,10 +340,11 @@ class JsonActionSequence(GameWindowAction):
                           f"(计划: {action_time:6.3f}s, 实际: {current_relative_time:6.3f}s)")
                 
                 # 执行按键操作
+                controller = context.tasker.controller
                 if action_type == "key_down":
-                    input_helper.key_down(key, activate=(i == 0))  # 只有第一个动作激活窗口
+                    controller.post_key_down(key).wait()
                 elif action_type == "key_up":
-                    input_helper.key_up(key)
+                    controller.post_key_up(key).wait()
                 else:
                     logger.error(f"[{sequence_name}] 不支持的操作类型: {action_type}")
                     return False

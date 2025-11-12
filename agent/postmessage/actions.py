@@ -1,6 +1,13 @@
 """
-PostMessage 自定义动作
-基于 PostMessage + 扫描码实现的游戏控制动作
+自定义按键动作 (使用 MaaFramework 控制器 API)
+
+本文件原先通过 PostMessage + 扫描码与窗口句柄交互, 现根据需求改为:
+1. 移除 GameWindowAction 基类与窗口句柄查找逻辑
+2. 不再使用 PostMessageInputHelper 封装, 直接调用 context.tasker.controller 提供的
+    异步按键接口: post_key_down / post_key_up / post_click_key
+3. 保持与原有参数格式兼容
+
+注意: 这些接口返回 Job, 使用 .wait() 保证顺序与时序可靠。
 """
 
 import json
@@ -8,13 +15,11 @@ import logging
 import time
 from maa.custom_action import CustomAction
 from maa.context import Context
-from .input_helper import PostMessageInputHelper
 import win32con
-import win32gui
 import sys
 import os
 
-# 导入主模块来访问全局配置
+# 导入主模块以获取全局配置 (闪避键等)
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import main
 
@@ -23,59 +28,48 @@ logger = logging.getLogger(__name__)
 # 注意：闪避键现在直接使用虚拟键码(int),无需映射
 
 
-class GameWindowAction(CustomAction):
-    """
-    游戏窗口操作基类
-    提供通用的窗口句柄获取方法
-    """
-    
-    # 目标窗口标题关键字列表
-    WINDOW_TITLE_KEYWORDS = ["二重螺旋", "Duet Night Abyss"]
-    
-    def _get_window_handle(self, context: Context) -> int:
-        """
-        获取窗口句柄（通用方法）
-        
-        优先查找包含 WINDOW_TITLE_KEYWORDS 中任一关键字的窗口
-        
-        Args:
-            context: MaaFramework 上下文
-            
-        Returns:
-            窗口句柄，如果获取失败返回 0
-        """
-        try:
-            # 方法 1: 精确匹配 - 遍历所有关键字
-            for keyword in self.WINDOW_TITLE_KEYWORDS:
-                hwnd = win32gui.FindWindow(None, keyword)
-                if hwnd and win32gui.IsWindow(hwnd):
-                    logger.info(f"[_get_window_handle] [OK] 找到「{keyword}」窗口: {hwnd} (0x{hwnd:08X})")
-                    return hwnd
-            
-            # 方法 2: 模糊匹配 - 枚举所有窗口查找包含任一关键字的
-            def find_window_callback(hwnd, param):
-                if win32gui.IsWindowVisible(hwnd):
-                    title = win32gui.GetWindowText(hwnd)
-                    for keyword in self.WINDOW_TITLE_KEYWORDS:
-                        if keyword in title:
-                            param.append((hwnd, keyword, title))
-                            return
-            
-            found_windows = []
-            win32gui.EnumWindows(find_window_callback, found_windows)
-            
-            if found_windows:
-                hwnd, keyword, title = found_windows[0]
-                logger.info(f"[_get_window_handle] [OK] 找到包含「{keyword}」的窗口: {hwnd} (0x{hwnd:08X})")
-                logger.info(f"[_get_window_handle] 窗口标题: '{title}'")
-                return hwnd
-            
-            logger.error(f"[_get_window_handle] 未找到包含 {self.WINDOW_TITLE_KEYWORDS} 中任一关键字的窗口")
-            return 0
-            
-        except Exception as e:
-            logger.error(f"[_get_window_handle] 获取窗口句柄失败: {e}", exc_info=True)
-            return 0
+########################
+# 通用辅助函数 (方向 / 键名映射)
+########################
+
+def direction_to_vk(direction: str) -> int:
+    """方向字符串转换为虚拟键码 (支持 WASD 与方向键)."""
+    d = direction.lower()
+    mapping = {
+        'w': ord('W'),
+        'a': ord('A'),
+        's': ord('S'),
+        'd': ord('D'),
+        'up': win32con.VK_UP,
+        'down': win32con.VK_DOWN,
+        'left': win32con.VK_LEFT,
+        'right': win32con.VK_RIGHT,
+    }
+    if d not in mapping:
+        raise ValueError(f"不支持的方向: {direction}")
+    return mapping[d]
+
+def char_to_vk(char: str) -> int:
+    if len(char) != 1:
+        raise ValueError(f"char 必须是单个字符: {char}")
+    return ord(char.upper())
+
+def name_to_vk(name: str) -> int:
+    n = name.lower()
+    special = {
+        'shift': win32con.VK_SHIFT,
+        'ctrl': win32con.VK_CONTROL,
+        'alt': win32con.VK_MENU,
+        'space': win32con.VK_SPACE,
+        'enter': win32con.VK_RETURN,
+        'esc': 27,
+        'tab': win32con.VK_TAB,
+    }
+    if n in special:
+        return special[n]
+    if len(name) == 1:
+        return char_to_vk(name)
+    raise ValueError(f"不支持的键名称: {name}")
 
 
 def debug_controller_attributes(ctrl, logger_instance=None):
@@ -143,7 +137,7 @@ def debug_controller_attributes(ctrl, logger_instance=None):
     log_func("=" * 60)
 
 
-class RunWithShift(GameWindowAction):
+class RunWithShift(CustomAction):
     """
     奔跑动作：先按下方向键,再按下闪避键(可配置),保持指定时长
     
@@ -192,29 +186,17 @@ class RunWithShift(GameWindowAction):
         logger.info(f"  使用闪避键: VK={dodge_vk} (0x{dodge_vk:02X})")
         
         try:
-            # DEBUG: 打印控制器信息（仅在 DEBUG 级别）
+            controller = context.tasker.controller
             if logger.isEnabledFor(logging.DEBUG):
-                debug_controller_attributes(context.tasker.controller, logger)
-            
-            # 获取窗口句柄
-            hwnd = self._get_window_handle(context)
-            if not hwnd:
-                logger.error("[RunWithShift] 无法获取窗口句柄")
-                # 在失败时强制打印控制器信息
-                debug_controller_attributes(context.tasker.controller, logger)
-                return False
-            
-            # 创建输入辅助对象
-            input_helper = PostMessageInputHelper(hwnd)
-            
-            # 获取方向键的虚拟键码
-            direction_vk = input_helper.get_direction_vk(direction)
+                debug_controller_attributes(controller, logger)
+
+            direction_vk = direction_to_vk(direction)
             
             logger.info(f"[RunWithShift] 方向键 VK={direction_vk}, 闪避键 VK={dodge_vk}")
             
             # 1. 按下方向键
             logger.info(f"[RunWithShift] 步骤 1: 按下方向键 '{direction}'")
-            input_helper.key_down(direction_vk, activate=True)
+            controller.post_key_down(direction_vk).wait()
             
             # 2. 短暂延迟
             if dodge_delay > 0:
@@ -223,7 +205,7 @@ class RunWithShift(GameWindowAction):
             
             # 3. 按下闪避键
             logger.info(f"[RunWithShift] 步骤 2: 按下闪避键 (VK=0x{dodge_vk:02X})")
-            input_helper.key_down(dodge_vk, activate=False)
+            controller.post_key_down(dodge_vk).wait()
             
             # 4. 保持按下状态
             logger.info(f"[RunWithShift] 步骤 3: 保持 {duration:.2f}秒...")
@@ -231,11 +213,11 @@ class RunWithShift(GameWindowAction):
             
             # 5. 释放闪避键
             logger.info(f"[RunWithShift] 步骤 4: 释放闪避键")
-            input_helper.key_up(dodge_vk)
+            controller.post_key_up(dodge_vk).wait()
             
             # 6. 释放方向键
             logger.info(f"[RunWithShift] 步骤 5: 释放方向键")
-            input_helper.key_up(direction_vk)
+            controller.post_key_up(direction_vk).wait()
             
             logger.info(f"[RunWithShift] [OK] 完成奔跑 {duration:.2f}秒")
             logger.info("=" * 60)
@@ -247,7 +229,7 @@ class RunWithShift(GameWindowAction):
             return False
 
 
-class LongPressKey(GameWindowAction):
+class LongPressKey(CustomAction):
     """
     长按单个按键
     
@@ -287,26 +269,22 @@ class LongPressKey(GameWindowAction):
         logger.info(f"[LongPressKey] 长按键 '{key}' 持续 {duration:.2f}秒")
         
         try:
-            # 获取窗口句柄
-            hwnd = self._get_window_handle(context)
-            if not hwnd:
-                logger.error("[LongPressKey] 无法获取窗口句柄")
-                return False
-            
-            # 创建输入辅助对象
-            input_helper = PostMessageInputHelper(hwnd)
-            
-            # 转换为虚拟键码
-            if isinstance(key, str) and len(key) == 1:
-                vk_code = input_helper.char_to_vk(key)
-            elif isinstance(key, int):
+            controller = context.tasker.controller
+            if isinstance(key, int):
                 vk_code = key
+            elif isinstance(key, str):
+                try:
+                    vk_code = name_to_vk(key)
+                except ValueError as e:
+                    logger.error(f"[LongPressKey] {e}")
+                    return False
             else:
                 logger.error(f"[LongPressKey] 不支持的键类型: {key}")
                 return False
-            
-            # 执行长按
-            input_helper.long_press_key(vk_code, duration)
+
+            controller.post_key_down(vk_code).wait()
+            time.sleep(duration)
+            controller.post_key_up(vk_code).wait()
             
             logger.info(f"[LongPressKey] [OK] 完成长按")
             return True
@@ -316,7 +294,7 @@ class LongPressKey(GameWindowAction):
             return False
 
 
-class PressMultipleKeys(GameWindowAction):
+class PressMultipleKeys(CustomAction):
     """
     同时按下多个按键
     
@@ -357,45 +335,26 @@ class PressMultipleKeys(GameWindowAction):
         logger.info(f"  按键列表: {keys}")
         
         try:
-            # 获取窗口句柄
-            hwnd = self._get_window_handle(context)
-            if not hwnd:
-                logger.error("[PressMultipleKeys] 无法获取窗口句柄")
-                return False
-            
-            # 创建输入辅助对象
-            input_helper = PostMessageInputHelper(hwnd)
-            
-            # 转换为虚拟键码列表
+            controller = context.tasker.controller
             vk_codes = []
             for key in keys:
-                if isinstance(key, str):
-                    if len(key) == 1:
-                        vk = input_helper.char_to_vk(key)
-                    else:
-                        # 特殊键名称
-                        key_lower = key.lower()
-                        if key_lower == 'shift':
-                            vk = win32con.VK_SHIFT
-                        elif key_lower == 'ctrl':
-                            vk = win32con.VK_CONTROL
-                        elif key_lower == 'alt':
-                            vk = win32con.VK_MENU
-                        elif key_lower == 'space':
-                            vk = win32con.VK_SPACE
-                        else:
-                            logger.error(f"[PressMultipleKeys] 不支持的键名称: {key}")
-                            return False
-                elif isinstance(key, int):
-                    vk = key
+                if isinstance(key, int):
+                    vk_codes.append(key)
+                elif isinstance(key, str):
+                    try:
+                        vk_codes.append(name_to_vk(key))
+                    except ValueError as e:
+                        logger.error(f"[PressMultipleKeys] {e}")
+                        return False
                 else:
                     logger.error(f"[PressMultipleKeys] 不支持的键类型: {key}")
                     return False
-                
-                vk_codes.append(vk)
-            
-            # 执行同时按键
-            input_helper.press_multiple_keys(vk_codes, duration)
+
+            for vk in vk_codes:
+                controller.post_key_down(vk).wait()
+            time.sleep(duration)
+            for vk in vk_codes:
+                controller.post_key_up(vk).wait()
             
             logger.info(f"[PressMultipleKeys] [OK] 完成同时按键")
             return True
@@ -405,7 +364,7 @@ class PressMultipleKeys(GameWindowAction):
             return False
 
 
-class RunWithJump(GameWindowAction):
+class RunWithJump(CustomAction):
     """
     边跑边跳动作：先按下方向键，延迟后按下闪避键（奔跑），然后周期性短按空格键（跳跃）
     
@@ -460,23 +419,14 @@ class RunWithJump(GameWindowAction):
         logger.info(f"  使用闪避键: VK={dodge_vk} (0x{dodge_vk:02X})")
         
         try:
-            # 获取窗口句柄
-            hwnd = self._get_window_handle(context)
-            if not hwnd:
-                logger.error("[RunWithJump] 无法获取窗口句柄")
-                return False
-            
-            # 创建输入辅助对象
-            input_helper = PostMessageInputHelper(hwnd)
-            
-            # 获取方向键的虚拟键码
-            direction_vk = input_helper.get_direction_vk(direction)
+            controller = context.tasker.controller
+            direction_vk = direction_to_vk(direction)
             
             logger.info(f"[RunWithJump] 方向键 VK={direction_vk}, 闪避键 VK={dodge_vk}")
             
             # 1. 按下方向键
             logger.info(f"[RunWithJump] 步骤 1: 按下方向键 '{direction}'")
-            input_helper.key_down(direction_vk, activate=True)
+            controller.post_key_down(direction_vk).wait()
             
             # 2. 短暂延迟后按下闪避键
             if dodge_delay > 0:
@@ -484,7 +434,7 @@ class RunWithJump(GameWindowAction):
                 time.sleep(dodge_delay)
             
             logger.info(f"[RunWithJump] 步骤 2: 按下闪避键 (VK=0x{dodge_vk:02X})")
-            input_helper.key_down(dodge_vk, activate=False)
+            controller.post_key_down(dodge_vk).wait()
             
             # 3. 周期性跳跃，直到总时长结束
             logger.info(f"[RunWithJump] 步骤 3: 开始周期性跳跃...")
@@ -508,13 +458,9 @@ class RunWithJump(GameWindowAction):
                     logger.info(f"[RunWithJump] -> 第 {jump_count} 次跳跃 (剩余: {remaining_time:.2f}秒)")
                     
                     # 按下空格键
-                    input_helper.key_down(win32con.VK_SPACE, activate=False)
-                    
-                    # 保持按下状态
+                    controller.post_key_down(win32con.VK_SPACE).wait()
                     time.sleep(jump_press_time)
-                    
-                    # 释放空格键
-                    input_helper.key_up(win32con.VK_SPACE)
+                    controller.post_key_up(win32con.VK_SPACE).wait()
                     
                     # 计算下一次跳跃时间
                     next_jump_time = current_time + jump_interval
@@ -524,11 +470,11 @@ class RunWithJump(GameWindowAction):
             
             # 4. 释放闪避键
             logger.info(f"[RunWithJump] 步骤 4: 释放闪避键")
-            input_helper.key_up(dodge_vk)
+            controller.post_key_up(dodge_vk).wait()
             
             # 5. 释放方向键
             logger.info(f"[RunWithJump] 步骤 5: 释放方向键")
-            input_helper.key_up(direction_vk)
+            controller.post_key_up(direction_vk).wait()
             
             logger.info(f"[RunWithJump] [OK] 完成边跑边跳 {duration:.2f}秒，共跳跃 {jump_count} 次")
             logger.info("=" * 60)
@@ -539,9 +485,9 @@ class RunWithJump(GameWindowAction):
             logger.error(f"[RunWithJump] 发生异常: {e}", exc_info=True)
             # 尝试释放所有按键
             try:
-                input_helper.key_up(win32con.VK_SPACE)
-                input_helper.key_up(dodge_vk)
-                input_helper.key_up(direction_vk)
-            except:
+                controller.post_key_up(win32con.VK_SPACE).wait()
+                controller.post_key_up(dodge_vk).wait()
+                controller.post_key_up(direction_vk).wait()
+            except Exception:
                 pass
             return False

@@ -9,6 +9,7 @@
     "def_map1_giveup":{
         "recognition": "OCR",
         "expected": ["放弃挑战"],
+        "roi" : [1152,673,58,15],
         "action": "Click",
         "post_delay": 1000,
         "next": ["def_map1_confirm"]
@@ -16,6 +17,7 @@
     "def_map1_giveup_template":{
         "recognition": "TemplateMatch",
         "template": "common/放弃挑战.png",
+        "roi" : [1157,626,48,49],
         "action": "Click",
         "post_delay": 1000,
         "next": ["def_map1_confirm"]
@@ -23,6 +25,7 @@
     "def_map1_confirm":{
         "recognition": "OCR",
         "expected": ["确定"],
+        "roi" : [737,391,39,23],
         "action": "Click",
         "post_delay": 1000,
         "next": ["def_map1_again","def_map1_again_template","def_map1_confirm"]
@@ -30,6 +33,7 @@
     "def_map1_again": {
         "recognition": "OCR",
         "expected": "再次进行",
+        "roi" : [882,620,79,30],
         "action": "Click",
         "post_delay": 1000,
         "next": ["def_map1_start", "def_map1_again"]
@@ -37,19 +41,22 @@
     "def_map1_again_template": {
         "recognition": "TemplateMatch",
         "template": "common/再次进行.png",
+        "roi" : [819,619,35,35],
         "action": "Click",
         "post_delay": 1000,
         "next": ["def_map1_start", "def_map1_again_template"]
     },
     "def_map1_start": {
         "recognition": "OCR",
-        "expected": "开始挑战",
+        "expected": "挑战",
+        "roi" : [719,467,78,30],
         "action": "Click",
         "next": ["def_map1_in_battle", "def_map1_in_battle_template","def_map1_start"]
     },
     "def_map1_in_battle":{
         "recognition": "OCR",
         "expected": ["前往目标点","目标点"],
+        "roi" : [1190,44,74,23],
         "post_delay": 2000,
         "action": "DoNothing",
         "next": ["def_map1_a1"]

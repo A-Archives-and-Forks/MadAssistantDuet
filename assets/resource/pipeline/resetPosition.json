@@ -13,28 +13,37 @@
     "OCR_Settings": {
         "recognition": "OCR",
         "expected": ["设置","设管"],
-        "action": "Click"
+        "roi" : [915,672,32,15],
+        "action": "Click",
+        "next": ["Template_Other"]
     },
     "Template_Match_Setting":{
         "recognition": "TemplateMatch",
         "template": "common/设置.png",
-        "action": "Click"
+        "roi" : [899,623,63,54],
+        "action": "Click",
+        "next": ["Template_Other"]
     },
     "Template_Other": {
         "recognition": "TemplateMatch",
         "template": "common/其他.png",
-        "action": "Click"
+        "roi" : [421,1,57,36],
+        "action": "Click",
+        "next": ["OCR_ResetCharacter","Template_Other"]
     },
     
     "OCR_ResetCharacter": {
         "recognition": "OCR",
         "expected": ["复位角色"],
-        "action": "Click"
+        "roi" : [731,210,64,25],
+        "action": "Click",
+        "next": ["OCR_Confirm","OCR_ResetCharacter"]
     },
     
     "OCR_Confirm": {
         "recognition": "OCR",
         "expected": ["确定"],
+        "roi" : [736,390,41,27],
         "action": "Click"
     }
 }

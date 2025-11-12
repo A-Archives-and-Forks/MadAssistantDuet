@@ -19,11 +19,11 @@
     "task": [
         {
             "name": "testOnErr",
-            "option": [],
+            "option": {},
             "__vscKey": "8b87cc46-6e53-4886-b235-48d1e3e7024f"
         }
     ],
     "win32": {
-        "hwnd": "0x708c8"
+        "hwnd": "330676"
     }
 }

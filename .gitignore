@@ -473,3 +473,5 @@ deps_official_backup
 dist
 
 deps_custom_backup
+
+.serena
