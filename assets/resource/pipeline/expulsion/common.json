@@ -4,7 +4,7 @@
         "action": "ClickKey",
         "key": 27,
         "post_delay": 1000,
-        "next": ["expulsion_giveup","expulsion_giveup_template"]
+        "next": ["expulsion_giveup","expulsion_giveup_template","expulsion_entry"]
     },
     "expulsion_giveup":{
         "recognition": "OCR",

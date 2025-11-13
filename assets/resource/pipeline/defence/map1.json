@@ -4,7 +4,7 @@
         "action": "ClickKey",
         "key": 27,
         "post_delay": 1000,
-        "next": ["def_map1_giveup","def_map1_giveup_template"]
+        "next": ["def_map1_giveup","def_map1_giveup_template","def_map1_entry"]
     },
     "def_map1_giveup":{
         "recognition": "OCR",

@@ -12,7 +12,7 @@
         "action": "ClickKey",
         "key": 27,
         "post_delay": 1000,
-        "next": ["JJcoin_giveup","JJcoin_giveup_template"]
+        "next": ["JJcoin_giveup","JJcoin_giveup_template","JJcoin_entry"]
     },
     "JJcoin_giveup":{
         "recognition": "OCR",

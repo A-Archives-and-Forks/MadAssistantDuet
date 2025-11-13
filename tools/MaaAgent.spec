@@ -10,35 +10,40 @@ MaaAgent PyInstaller 配置文件
 
 import os
 import sys
-from PyInstaller.utils.hooks import collect_all, collect_data_files, collect_dynamic_libs
 
 # 获取项目根目录(spec 文件在 tools/ 下,需要返回上一级)
 spec_root = os.path.dirname(os.path.abspath(SPECPATH))
 
-# 收集 pywin32 的所有内容
-pywin32_datas, pywin32_binaries, pywin32_hiddenimports = collect_all('pywin32')
-
-# 收集 maa 包的所有内容(包括 DLL 和子模块)
-maa_datas, maa_binaries, maa_hiddenimports = collect_all('maa')
-
 block_cipher = None
+
+# Try to collect maa package non-python data (native libs, bin, etc.) so
+# the bundled app can find maa/bin at runtime inside the _MEI tempdir.
+datas_list = []
+try:
+    import maa
+    maa_dir = os.path.dirname(os.path.abspath(maa.__file__))
+
+    # Walk maa package directory and include non-.py files (binaries/resources)
+    for root, dirs, files in os.walk(maa_dir):
+        for fname in files:
+            # include everything that's not a python source file; keep extensions that matter
+            if not fname.endswith('.py') and not fname.endswith('.pyc') and not fname.endswith('.pyo'):
+                src = os.path.join(root, fname)
+                rel = os.path.relpath(root, maa_dir)
+                # destination inside bundle should preserve package structure
+                dest = os.path.join('maa', rel) if rel != '.' else 'maa'
+                datas_list.append((src, dest))
+except Exception:
+    # If maa isn't importable at spec build time, leave datas_list empty.
+    datas_list = []
+
 
 a = Analysis(
     [os.path.join(spec_root, 'agent', 'main.py')],
     pathex=[],
-    binaries=pywin32_binaries + maa_binaries,
-    datas=[
-        (os.path.join(spec_root, 'agent', 'config'), 'config'),
-        (os.path.join(spec_root, 'agent', 'postmessage'), 'postmessage'),
-    ] + pywin32_datas + maa_datas,
-    hiddenimports=[
-        'win32timezone',
-        'win32api',
-        'win32con',
-        'win32gui',
-        'maa.agent',
-        'maa.agent.agent_server',
-    ] + pywin32_hiddenimports + maa_hiddenimports,
+    binaries=[],
+    datas=datas_list,
+    hiddenimports=[],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
