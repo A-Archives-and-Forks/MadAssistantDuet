@@ -17,16 +17,17 @@
 
 ## 使用
 [视频介绍](https://www.bilibili.com/video/BV15H1nBZEMG)
-1. 目前只支持桌面端（非模拟器），且游戏需使用**无边框窗口**运行，通过修改系统分辨率可以降低能耗
+1. 目前只支持桌面端（非模拟器），且游戏需使用**16:9**运行，如果你显示器比例不是16:9，请使用16:9窗口化，而非无边框窗口化
 2. 前往[release](https://github.com/huanshang141/MdaAssistantDuet/releases)下载对应版本
 3. 建议先运行游戏，再运行脚本
 4. 解压后，使用管理员权限运行`MFAAvalonia.exe`
 5. 可以勾选设置闪避键进行自定义，默认为左shift键（游戏默认设置）
 6. 可以勾选自动战斗设置进行自定义，默认为循环按E
-7. 手动选择游戏窗口，然后直接运行对应任务即可，如果出现问题，先进行截图测试，如果截图失败，在设置-连接设置更改捕获方式和触控模式
-8. 不能携带增加移速的mod，推荐使用水母作为主控
-9. 游戏须在前台运行，需要后台挂机刷可以参考[后台运行](https://m7a.top/#/assets/docs/Background)
-10. 移动逻辑在`resource\pipeline`中，如果遇到卡墙可以手动修改某一步的持续时间，如65级mod中，如果角色偏北，调整`resource\pipeline\扼守\map1.json`，找到
+7. 点击任务可以进行设置，如战斗轮数，超时时间自定义等
+8. 手动选择游戏窗口，然后直接运行对应任务即可，如果出现问题，先进行截图测试，如果截图失败，在设置-连接设置更改捕获方式和触控模式
+9. 不能携带增加移速的mod，推荐使用水母作为主控
+10. 目前支持后台运行，但在部分情况下会抢鼠标
+11. 扼守本移动逻辑在`resource\pipeline`中，如果遇到卡墙可以手动修改某一步的持续时间，如65级mod中，如果角色偏北，调整`resource\pipeline\扼守\map1.json`，找到
 ```json
     "def_map1_a3":{
         "recognition": "DirectHit",
@@ -45,3 +46,6 @@
 ## 鸣谢
 
 本项目由 **[MaaFramework](https://github.com/MaaXYZ/MaaFramework)** 强力驱动！
+感谢以下开发者对本项目作出的贡献:
+
+[![Contributors](https://contrib.rocks/image?repo=huanshang141/MadAssistantDuet&max=1000)](https://github.com/huanshang141/MadAssistantDuet/graphs/contributors)
